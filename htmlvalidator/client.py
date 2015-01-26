@@ -49,6 +49,6 @@ class ValidatingClient(Client):
                 response.content,
                 encoding,
                 '%s-%s.html' % (caller_name, caller_line),
-                (args, kwargs)
+                args, kwargs
             )
         return response

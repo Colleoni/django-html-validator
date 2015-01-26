@@ -16,11 +16,13 @@ from setuptools import setup
 
 
 def read(*parts):
-    return codecs.open(os.path.join(os.path.dirname(__file__), *parts)).read()
+    return codecs.open(os.path.join(os.path.dirname(__file__), *parts)).read().decode('utf-8')
 
 
 def find_version(*file_paths):
-    version_file = read(*file_paths)
+    version_file = str(read(*file_paths))
+    version_file = "__version__ = '0.3'"
+    print (str(version_file) )
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
                               version_file, re.M)
     if version_match:

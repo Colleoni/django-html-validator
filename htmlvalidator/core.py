@@ -1,7 +1,7 @@
 import codecs
 import os
 import tempfile
-import StringIO
+from io import StringIO, BytesIO
 import gzip
 import re
 import subprocess
@@ -14,8 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from .exceptions import ValidatorOperationalError, ValidationError
 
 
-def validate_html(html, encoding, filename,
-                  (args, kwargs)):
+def validate_html(html, encoding, filename, args, kwargs):
     temp_dir = getattr(
         settings,
         'HTMLVALIDATOR_DUMPDIR',
@@ -36,13 +35,13 @@ def validate_html(html, encoding, filename,
         filename
     )
     with codecs.open(temp_file, 'w', encoding) as f:
-        f.write(html)
-        valid = _validate(temp_file, encoding, (args, kwargs))
+        f.write(html.decode('utf-8'))
+        valid = _validate(temp_file, encoding, args, kwargs)
     if valid:
         os.remove(temp_file)
 
 
-def _validate(html_file, encoding, (args, kwargs)):
+def _validate(html_file, encoding, args, kwargs):
 
     if getattr(settings, 'HTMLVALIDATOR_VNU_JAR', None):
         vnu_jar_path = settings.HTMLVALIDATOR_VNU_JAR
@@ -61,7 +60,7 @@ def _validate(html_file, encoding, (args, kwargs)):
             raise ValidatorOperationalError(err)
 
         # out = unicode(out, 'utf-8')
-        err = unicode(err, 'utf-8')
+        err = str(err, 'utf-8')
         output = err  # cryptic, I know
         output = re.sub(
             '"file:%s":' % re.escape(html_file),
@@ -70,10 +69,10 @@ def _validate(html_file, encoding, (args, kwargs)):
         )
 
     else:
-        buf = StringIO.StringIO()
+        buf = BytesIO()
         gzipper = gzip.GzipFile(fileobj=buf, mode='wb')
         with codecs.open(html_file, 'r', encoding) as f:
-            gzipper.write(f.read())
+            gzipper.write(bytes(f.read(), 'UTF-8'))
             gzipper.close()
         gzippeddata = buf.getvalue()
         buf.close()
@@ -92,8 +91,7 @@ def _validate(html_file, encoding, (args, kwargs)):
         if req.status_code != 200:
             raise ValidatorOperationalError(req)
 
-        output = unicode(req.content, encoding)
-
+        output = req.content.decode("utf-8")
     raise_exceptions = getattr(
         settings,
         'HTMLVALIDATOR_FAILFAST',
@@ -105,17 +103,19 @@ def _validate(html_file, encoding, (args, kwargs)):
         'HTMLVALIDATOR_OUTPUT',
         'file'
     )
+
     if output and 'The document is valid' not in output:
-        print "VALIDATON TROUBLE"
+        print ("\n\n")
+        print ("VALIDATON TROUBLE")
         if how_to_ouput == 'stdout':
-            print output
-            print
+            output = output.encode('ascii', 'ignore')
+            print (output.decode('ascii'))
         else:
-            print "To debug, see:"
-            print "\t", html_file
+            print ("To debug, see:")
+            print ("\t", html_file)
             txt_file = re.sub('\.html$', '.txt', html_file)
             assert txt_file != html_file
-            print "\t", txt_file
+            print ("\t", txt_file)
             with codecs.open(txt_file, 'w', encoding) as f:
                 f.write('Arguments to GET:\n')
                 for arg in args:
@@ -124,6 +124,7 @@ def _validate(html_file, encoding, (args, kwargs)):
                     f.write('\t%s=%s\n' % (k, w))
                 f.write('\n')
                 f.write(output)
+        print ("\n\n")
 
         if raise_exceptions:
             raise ValidationError(output)
